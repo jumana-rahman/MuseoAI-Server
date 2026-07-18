@@ -15,6 +15,22 @@ export async function getAuth() {
     emailAndPassword: {
       enabled: true,
     },
+    user: {
+      additionalFields: {
+        bio: {
+          type: "string",
+          required: false,
+          defaultValue: "",
+          input: true,
+        },
+        country: {
+          type: "string",
+          required: false,
+          defaultValue: "",
+          input: true,
+        },
+      },
+    },
     socialProviders: {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
