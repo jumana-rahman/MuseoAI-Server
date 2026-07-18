@@ -31,7 +31,7 @@ export async function connectDB(): Promise<void> {
 
 export async function getDb(): Promise<Db> {
   const mongoClient = await clientPromise;
-  return mongoClient.db();
+  return mongoClient.db(env.DB_NAME || "museoai");
 }
 
 export default clientPromise;

@@ -9,6 +9,7 @@ function required(key: string): string {
 
 export const env = {
   MONGODB_URI: required("MONGODB_URI"),
+  DB_NAME: process.env.DB_NAME || "museoai",
   BETTER_AUTH_SECRET: required("BETTER_AUTH_SECRET"),
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "http://localhost:5000",
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
