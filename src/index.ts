@@ -25,10 +25,10 @@ app.use(
 async function setupAuth() {
   const auth = await getAuth();
 
-  app.all("/api/auth/*splat", toNodeHandler(auth));
-
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  app.all("/api/auth/*splat", toNodeHandler(auth));
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", service: "MuseoAI API" });
