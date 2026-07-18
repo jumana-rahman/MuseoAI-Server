@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import { getFavoritesCollection } from "../models/favorites.js";
 import { getMuseumsCollection } from "../models/museums.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { toClient, toClientMany } from "../lib/utils.js";
 
 const router = Router();
 const p = (v: string | string[]) => (Array.isArray(v) ? v[0] : v);
@@ -25,7 +26,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
       museum: museumMap.get(f.museumId) || null,
     }));
 
-    res.json(enriched);
+    res.json(toClientMany(enriched as any[]));
   } catch (err) {
     console.error("[Favorites] List error:", err);
     res.status(500).json({ error: "Failed to fetch favorites" });

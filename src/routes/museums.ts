@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { ObjectId } from "mongodb";
 import { getMuseumsCollection, type Museum } from "../models/museums.js";
+import { toClient, toClientMany } from "../lib/utils.js";
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.get("/", async (req: Request, res: Response) => {
     ]);
 
     res.json({
-      museums,
+      museums: toClientMany(museums as any[]),
       total,
       page: pageNum,
       totalPages: Math.ceil(total / limitNum),
@@ -71,7 +72,7 @@ router.get("/featured", async (_req: Request, res: Response) => {
       .sort({ rating: -1 })
       .limit(8)
       .toArray();
-    res.json(museums);
+    res.json(toClientMany(museums as any[]));
   } catch (err) {
     console.error("[Museums] Featured error:", err);
     res.status(500).json({ error: "Failed to fetch featured museums" });
@@ -122,7 +123,7 @@ router.get("/:id/related", async (req: Request, res: Response) => {
       .find({ category: museum.category, id: { $ne: museum.id } })
       .limit(4)
       .toArray();
-    res.json(related);
+    res.json(toClientMany(related as any[]));
   } catch (err) {
     console.error("[Museums] Related error:", err);
     res.status(500).json({ error: "Failed to fetch related museums" });
@@ -134,7 +135,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     const col = await getMuseumsCollection();
     const museum = await col.findOne({ id: req.params.id });
     if (!museum) return res.status(404).json({ error: "Museum not found" });
-    res.json(museum);
+    res.json(toClient(museum as any));
   } catch (err) {
     console.error("[Museums] Detail error:", err);
     res.status(500).json({ error: "Failed to fetch museum" });

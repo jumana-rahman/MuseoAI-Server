@@ -3,6 +3,7 @@ import { getDb } from "../config/db.js";
 import { getReviewsCollection } from "../models/reviews.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { reviewSchema } from "../middleware/validation.js";
+import { toClientMany } from "../lib/utils.js";
 
 const router = Router({ mergeParams: true });
 const p = (v: string | string[]) => (Array.isArray(v) ? v[0] : v);
@@ -27,7 +28,7 @@ router.get("/:museumId/reviews", async (req: Request, res: Response) => {
       return { ...r, userName: u?.name ?? "Anonymous", userAvatar: u?.image ?? null };
     });
 
-    res.json(enriched);
+    res.json(toClientMany(enriched as any[]));
   } catch (err) {
     console.error("[Reviews] List error:", err);
     res.status(500).json({ error: "Failed to fetch reviews" });

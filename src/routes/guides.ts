@@ -4,6 +4,7 @@ import { getGuidesCollection, type MuseumGuide } from "../models/guides.js";
 import { getMuseumsCollection } from "../models/museums.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { guideCreateSchema } from "../middleware/validation.js";
+import { toClient, toClientMany } from "../lib/utils.js";
 
 const router = Router();
 const p = (v: string | string[]) => (Array.isArray(v) ? v[0] : v);
@@ -29,7 +30,7 @@ router.get("/latest", async (_req: Request, res: Response) => {
       museumCountry: museumMap.get(g.museumId)?.country || "",
     }));
 
-    res.json(enriched);
+    res.json(toClientMany(enriched as any[]));
   } catch (err) {
     console.error("[Guides] Latest error:", err);
     res.status(500).json({ error: "Failed to fetch guides" });
@@ -55,7 +56,7 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
       museumName: museumMap.get(g.museumId)?.title || "Unknown Museum",
     }));
 
-    res.json(enriched);
+    res.json(toClientMany(enriched as any[]));
   } catch (err) {
     console.error("[Guides] Me error:", err);
     res.status(500).json({ error: "Failed to fetch your guides" });
@@ -72,11 +73,11 @@ router.get("/:id", async (req: Request, res: Response) => {
 
     const museum = await museumsCol.findOne({ id: guide.museumId });
 
-    res.json({
+    res.json(toClient({
       ...guide,
       museumName: museum?.title || "Unknown Museum",
       museumCountry: museum?.country || "",
-    });
+    } as any));
   } catch (err) {
     console.error("[Guides] Detail error:", err);
     res.status(500).json({ error: "Failed to fetch guide" });
@@ -90,7 +91,7 @@ router.get("/museum/:museumId", async (req: Request, res: Response) => {
       .find({ museumId: p(req.params.museumId) })
       .sort({ createdAt: -1 })
       .toArray();
-    res.json(guides);
+    res.json(toClientMany(guides as any[]));
   } catch (err) {
     console.error("[Guides] By museum error:", err);
     res.status(500).json({ error: "Failed to fetch guides" });
@@ -124,7 +125,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
       likedBy: [],
     });
 
-    res.status(201).json({ _id: result.insertedId, message: "Guide created" });
+    res.status(201).json({ id: result.insertedId.toHexString(), message: "Guide created" });
   } catch (err) {
     console.error("[Guides] Create error:", err);
     res.status(500).json({ error: "Failed to create guide" });
