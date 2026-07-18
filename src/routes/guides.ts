@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { getGuidesCollection, type MuseumGuide } from "../models/guides.js";
 import { getMuseumsCollection } from "../models/museums.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { guideCreateSchema } from "../middleware/validation.js";
 
 const router = Router();
 const p = (v: string | string[]) => (Array.isArray(v) ? v[0] : v);
@@ -98,19 +99,11 @@ router.get("/museum/:museumId", async (req: Request, res: Response) => {
 
 router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const {
-      title,
-      museumId,
-      targetAudience,
-      visitDuration,
-      shortDescription,
-      guideContent,
-      coverImage,
-    } = req.body;
-
-    if (!title || !museumId || !targetAudience || !visitDuration || !guideContent) {
-      return res.status(400).json({ error: "Missing required fields" });
+    const parsed = guideCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
     }
+    const { title, museumId, targetAudience, visitDuration, shortDescription, guideContent, coverImage } = parsed.data;
 
     const museumsCol = await getMuseumsCollection();
     const museum = await museumsCol.findOne({ id: museumId });

@@ -5,15 +5,20 @@ import { getMuseumsCollection } from "../models/museums.js";
 import { getConversationsCollection } from "../models/conversations.js";
 import { getSignalsCollection } from "../models/signals.js";
 import { requireAuth, optionalAuth, type AuthRequest } from "../middleware/auth.js";
+import { aiLimiter } from "../middleware/rateLimit.js";
+import { museumGuideSchema, guideWriterSchema, recommendationsSchema, signalSchema } from "../middleware/validation.js";
 
 const router = Router();
 
+router.use(aiLimiter);
+
 router.post("/museum-guide", optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { museumId, message, conversationId } = req.body;
-    if (!museumId || !message) {
-      return res.status(400).json({ error: "museumId and message are required" });
+    const parsed = museumGuideSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
     }
+    const { museumId, message, conversationId } = parsed.data;
 
     const sanitized = sanitizeInput(message, 1000);
 
@@ -59,7 +64,13 @@ Rules:
     })) || [];
 
     const ai = getAI();
-    const response = await ai.models.generateContent({
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: [
         { role: "user", parts: [{ text: museumContext }] },
@@ -69,9 +80,18 @@ Rules:
       ],
     });
 
-    const reply = response.text || "I'm sorry, I couldn't generate a response. Please try again.";
+    let reply = "";
+    for await (const chunk of stream) {
+      const text = chunk.text || "";
+      if (text) {
+        reply += text;
+        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      }
+    }
+    res.write(`data: [DONE]\n\n`);
+    res.end();
 
-    if (req.userId) {
+    if (req.userId && reply) {
       const newMessages = [
         ...(conversation?.messages || []),
         { role: "user" as const, content: sanitized, timestamp: new Date() },
@@ -84,34 +104,34 @@ Rules:
           { $set: { messages: newMessages, updatedAt: new Date() } }
         );
       } else {
-        const result = await convCol.insertOne({
+        await convCol.insertOne({
           userId: req.userId,
           museumId,
           messages: newMessages,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        return res.json({
-          reply,
-          conversationId: result.insertedId.toString(),
-        });
       }
     }
-
-    res.json({ reply, conversationId: conversation?._id?.toString() || null });
   } catch (err) {
     console.error("[AI] Museum guide error:", err);
-    res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: "AI service temporarily unavailable." })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    }
   }
 });
 
 router.post("/guide-writer", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { museumId, targetAudience, visitDuration, interests, length } = req.body;
-
-    if (!museumId || !targetAudience || !visitDuration) {
-      return res.status(400).json({ error: "museumId, targetAudience, and visitDuration are required" });
+    const parsed = guideWriterSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
     }
+    const { museumId, targetAudience, visitDuration, interests, length } = parsed.data;
 
     const museumsCol = await getMuseumsCollection();
     const museum = await museumsCol.findOne({ id: museumId });
@@ -119,10 +139,8 @@ router.post("/guide-writer", requireAuth, async (req: AuthRequest, res: Response
 
     const sanitizedAudience = sanitizeInput(targetAudience, 50);
     const sanitizedDuration = sanitizeInput(visitDuration, 50);
-    const sanitizedInterests = Array.isArray(interests)
-      ? interests.slice(0, 10).map((i: string) => sanitizeInput(String(i), 50))
-      : [];
-    const outputLength = ["short", "medium", "long"].includes(length) ? length : "medium";
+    const sanitizedInterests = (interests || []).map((i) => sanitizeInput(i, 50));
+    const outputLength = length || "medium";
 
     const prompt = `
 You are an expert museum guide writer. Create a structured museum visit guide.
@@ -178,7 +196,11 @@ Do NOT include any text outside the JSON object. No markdown, no code blocks. Ju
 
 router.post("/recommendations", optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { interests, preferredCountry, budget, travelDuration, travelType } = req.body;
+    const parsed = recommendationsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+    const { interests, preferredCountry, budget, travelDuration, travelType } = parsed.data;
 
     const museumsCol = await getMuseumsCollection();
 
@@ -285,15 +307,11 @@ Return ONLY the JSON array. No markdown, no code blocks, no extra text.
 
 router.post("/signals", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { museumId, signalType } = req.body;
-    if (!museumId || !signalType) {
-      return res.status(400).json({ error: "museumId and signalType are required" });
+    const parsed = signalSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
     }
-
-    const validSignals = ["favorite_add", "favorite_remove", "museum_view", "like", "dislike"];
-    if (!validSignals.includes(signalType)) {
-      return res.status(400).json({ error: "Invalid signalType" });
-    }
+    const { museumId, signalType } = parsed.data;
 
     const col = await getSignalsCollection();
     await col.insertOne({
