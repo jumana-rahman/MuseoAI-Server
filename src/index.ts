@@ -8,6 +8,7 @@ import museumRoutes from "./routes/museums.js";
 import guideRoutes from "./routes/guides.js";
 import favoriteRoutes from "./routes/favorites.js";
 import reviewRoutes from "./routes/reviews.js";
+import aiRoutes from "./routes/ai.js";
 
 const app = express();
 
@@ -37,6 +38,7 @@ async function setupAuth() {
   app.use("/api/guides", guideRoutes);
   app.use("/api/favorites", favoriteRoutes);
   app.use("/api/museums", reviewRoutes);
+  app.use("/api/ai", aiRoutes);
 
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error("[Error]", err.message);
