@@ -10,6 +10,7 @@ export interface AuthRequest extends Request {
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const auth = await getAuth();
+    if (!auth) return res.status(500).json({ error: "Auth not initialized" });
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
@@ -29,6 +30,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
 export async function optionalAuth(req: AuthRequest, _res: Response, next: NextFunction) {
   try {
     const auth = await getAuth();
+    if (!auth) return next();
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });

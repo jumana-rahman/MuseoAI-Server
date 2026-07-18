@@ -9,6 +9,7 @@ import guideRoutes from "./routes/guides.js";
 import favoriteRoutes from "./routes/favorites.js";
 import reviewRoutes from "./routes/reviews.js";
 import aiRoutes from "./routes/ai.js";
+import statsRoutes from "./routes/stats.js";
 
 const app = express();
 
@@ -28,7 +29,7 @@ async function setupAuth() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  app.all("/api/auth/*splat", toNodeHandler(auth));
+  app.all("/api/auth/*splat", toNodeHandler(auth!));
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", service: "MuseoAI API" });
@@ -39,6 +40,7 @@ async function setupAuth() {
   app.use("/api/favorites", favoriteRoutes);
   app.use("/api/museums", reviewRoutes);
   app.use("/api/ai", aiRoutes);
+  app.use("/api", statsRoutes);
 
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error("[Error]", err.message);

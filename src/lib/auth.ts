@@ -3,7 +3,8 @@ import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { getDb } from "../config/db.js";
 import { env } from "../config/env.js";
 
-let _auth: ReturnType<typeof betterAuth> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _auth: any = null;
 
 export async function getAuth() {
   if (_auth) return _auth;

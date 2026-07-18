@@ -5,6 +5,7 @@ import { getMuseumsCollection } from "../models/museums.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
+const p = (v: string | string[]) => (Array.isArray(v) ? v[0] : v);
 
 router.get("/latest", async (_req: Request, res: Response) => {
   try {
@@ -65,7 +66,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     const col = await getGuidesCollection();
     const museumsCol = await getMuseumsCollection();
 
-    const guide = await col.findOne({ _id: new ObjectId(req.params.id) });
+    const guide = await col.findOne({ _id: new ObjectId(p(req.params.id)) });
     if (!guide) return res.status(404).json({ error: "Guide not found" });
 
     const museum = await museumsCol.findOne({ id: guide.museumId });
@@ -85,7 +86,7 @@ router.get("/museum/:museumId", async (req: Request, res: Response) => {
   try {
     const col = await getGuidesCollection();
     const guides = await col
-      .find({ museumId: req.params.museumId })
+      .find({ museumId: p(req.params.museumId) })
       .sort({ createdAt: -1 })
       .toArray();
     res.json(guides);
@@ -140,19 +141,19 @@ router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
 router.post("/:id/like", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const col = await getGuidesCollection();
-    const guide = await col.findOne({ _id: new ObjectId(req.params.id) });
+    const guide = await col.findOne({ _id: new ObjectId(p(req.params.id)) });
     if (!guide) return res.status(404).json({ error: "Guide not found" });
 
     const alreadyLiked = guide.likedBy?.includes(req.userId!);
     if (alreadyLiked) {
       await col.updateOne(
-        { _id: new ObjectId(req.params.id) },
+        { _id: new ObjectId(p(req.params.id)) },
         { $pull: { likedBy: req.userId }, $inc: { likes: -1 } }
       );
       res.json({ liked: false, likes: guide.likes - 1 });
     } else {
       await col.updateOne(
-        { _id: new ObjectId(req.params.id) },
+        { _id: new ObjectId(p(req.params.id)) },
         { $addToSet: { likedBy: req.userId }, $inc: { likes: 1 } }
       );
       res.json({ liked: true, likes: guide.likes + 1 });
@@ -166,13 +167,13 @@ router.post("/:id/like", requireAuth, async (req: AuthRequest, res: Response) =>
 router.delete("/:id", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const col = await getGuidesCollection();
-    const guide = await col.findOne({ _id: new ObjectId(req.params.id) });
+    const guide = await col.findOne({ _id: new ObjectId(p(req.params.id)) });
     if (!guide) return res.status(404).json({ error: "Guide not found" });
     if (guide.authorId !== req.userId) {
       return res.status(403).json({ error: "Not authorized to delete this guide" });
     }
 
-    await col.deleteOne({ _id: new ObjectId(req.params.id) });
+    await col.deleteOne({ _id: new ObjectId(p(req.params.id)) });
     res.json({ message: "Guide deleted" });
   } catch (err) {
     console.error("[Guides] Delete error:", err);

@@ -1,17 +1,32 @@
 import { Router, type Request, type Response } from "express";
+import { getDb } from "../config/db.js";
 import { getReviewsCollection } from "../models/reviews.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 
 const router = Router({ mergeParams: true });
+const p = (v: string | string[]) => (Array.isArray(v) ? v[0] : v);
 
 router.get("/:museumId/reviews", async (req: Request, res: Response) => {
   try {
     const col = await getReviewsCollection();
     const reviews = await col
-      .find({ museumId: req.params.museumId })
+      .find({ museumId: p(req.params.museumId) })
       .sort({ createdAt: -1 })
       .toArray();
-    res.json(reviews);
+
+    const db = await getDb();
+    const userIds = [...new Set(reviews.map((r) => r.userId))];
+    const users = userIds.length > 0
+      ? await db.collection("user").find({ id: { $in: userIds } }).project({ id: 1, name: 1, image: 1 }).toArray()
+      : [];
+    const userMap = new Map(users.map((u: any) => [u.id, u]));
+
+    const enriched = reviews.map((r) => {
+      const u = userMap.get(r.userId) as any;
+      return { ...r, userName: u?.name ?? "Anonymous", userAvatar: u?.image ?? null };
+    });
+
+    res.json(enriched);
   } catch (err) {
     console.error("[Reviews] List error:", err);
     res.status(500).json({ error: "Failed to fetch reviews" });
@@ -21,7 +36,7 @@ router.get("/:museumId/reviews", async (req: Request, res: Response) => {
 router.post("/:museumId/reviews", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { rating, review } = req.body;
-    const { museumId } = req.params;
+    const museumId = p(req.params.museumId);
 
     if (!rating || !review) {
       return res.status(400).json({ error: "Rating and review text are required" });

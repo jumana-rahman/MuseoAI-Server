@@ -4,6 +4,7 @@ import { getMuseumsCollection } from "../models/museums.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
+const p = (v: string | string[]) => (Array.isArray(v) ? v[0] : v);
 
 router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
@@ -33,7 +34,7 @@ router.get("/", requireAuth, async (req: AuthRequest, res: Response) => {
 
 router.post("/:museumId", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { museumId } = req.params;
+    const museumId = p(req.params.museumId);
 
     const museumsCol = await getMuseumsCollection();
     const museum = await museumsCol.findOne({ id: museumId });
@@ -62,7 +63,7 @@ router.post("/:museumId", requireAuth, async (req: AuthRequest, res: Response) =
 router.delete("/:museumId", requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const favCol = await getFavoritesCollection();
-    await favCol.deleteOne({ userId: req.userId, museumId: req.params.museumId });
+    await favCol.deleteOne({ userId: req.userId, museumId: p(req.params.museumId) });
     res.json({ favorited: false, message: "Removed from favorites" });
   } catch (err) {
     console.error("[Favorites] Remove error:", err);
