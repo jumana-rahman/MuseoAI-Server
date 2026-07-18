@@ -1,3 +1,6 @@
+import dns from "node:dns/promises";
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 import { MongoClient, type Db } from "mongodb";
 import { env } from "./env.js";
 
