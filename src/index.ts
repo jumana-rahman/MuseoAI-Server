@@ -1,9 +1,13 @@
 import express from "express";
 import cors from "cors";
-import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
+import { toNodeHandler } from "better-auth/node";
 import { env } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import { getAuth } from "./lib/auth.js";
+import museumRoutes from "./routes/museums.js";
+import guideRoutes from "./routes/guides.js";
+import favoriteRoutes from "./routes/favorites.js";
+import reviewRoutes from "./routes/reviews.js";
 
 const app = express();
 
@@ -28,6 +32,11 @@ async function setupAuth() {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", service: "MuseoAI API" });
   });
+
+  app.use("/api/museums", museumRoutes);
+  app.use("/api/guides", guideRoutes);
+  app.use("/api/favorites", favoriteRoutes);
+  app.use("/api/museums", reviewRoutes);
 
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error("[Error]", err.message);
