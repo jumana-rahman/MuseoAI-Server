@@ -13,7 +13,7 @@ const router = Router();
 function getAIErrorMessage(err: unknown): string {
   const status = (err as any)?.status || (err as any)?.code;
   if (status === 429 || String(err).includes("429") || String(err).includes("RESOURCE_EXHAUSTED")) {
-    return "AI service limit reached. Please try again after 24 hours.";
+    return "The AI service is temporarily busy. Please try again in a moment.";
   }
   return "AI service temporarily unavailable. Please try again.";
 }
