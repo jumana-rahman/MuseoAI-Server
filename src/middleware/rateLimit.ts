@@ -10,10 +10,10 @@ export const authLimiter = rateLimit({
 
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 15,
-  message: { error: "Too many AI requests. Please slow down." },
+  max: 9999,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => true,
 });
 
 export const generalLimiter = rateLimit({

@@ -71,7 +71,7 @@ Rules:
     res.flushHeaders();
 
     const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [
         { role: "user", parts: [{ text: museumContext }] },
         { role: "model", parts: [{ text: "I'm ready to help visitors learn about " + museum.title + ". Ask me anything!" }] },
@@ -170,7 +170,7 @@ Do NOT include any text outside the JSON object. No markdown, no code blocks. Ju
 
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
@@ -279,7 +279,7 @@ Return ONLY the JSON array. No markdown, no code blocks, no extra text.
 
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
