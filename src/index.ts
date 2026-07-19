@@ -26,44 +26,69 @@ app.use(
   })
 );
 
-async function setupAuth() {
-  const auth = await getAuth();
+let initialized = false;
+let initPromise: Promise<void> | null = null;
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+async function init() {
+  if (initialized) return;
+  if (!initPromise) {
+    initPromise = (async () => {
+      await connectDB();
 
-  app.all("/api/auth/*splat", authLimiter, toNodeHandler(auth!));
+      const auth = await getAuth();
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", service: "MuseoAI API" });
-  });
+      app.use(express.json());
+      app.use(express.urlencoded({ extended: true }));
 
-  app.use("/api/museums", generalLimiter, museumRoutes);
-  app.use("/api/guides", generalLimiter, guideRoutes);
-  app.use("/api/favorites", generalLimiter, favoriteRoutes);
-  app.use("/api/museums", generalLimiter, reviewRoutes);
-  app.use("/api/ai", aiRoutes);
-  app.use("/api", generalLimiter, statsRoutes);
-  app.use("/api", generalLimiter, publicRoutes);
-  app.use("/api", generalLimiter, activityRoutes);
+      app.all("/api/auth/*splat", authLimiter, toNodeHandler(auth!));
 
-  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error("[Error]", err.message);
-    res.status(500).json({ error: "Internal server error" });
-  });
+      app.get("/", (_req, res) => {
+        res.send("MuseoAI Server is running");
+      });
+
+      app.get("/api/health", (_req, res) => {
+        res.json({ status: "ok", service: "MuseoAI API" });
+      });
+
+      app.use("/api/museums", generalLimiter, museumRoutes);
+      app.use("/api/guides", generalLimiter, guideRoutes);
+      app.use("/api/favorites", generalLimiter, favoriteRoutes);
+      app.use("/api/museums", generalLimiter, reviewRoutes);
+      app.use("/api/ai", aiRoutes);
+      app.use("/api", generalLimiter, statsRoutes);
+      app.use("/api", generalLimiter, publicRoutes);
+      app.use("/api", generalLimiter, activityRoutes);
+
+      app.use((_req, res) => {
+        res.status(404).json({ error: "Not found" });
+      });
+
+      app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+        console.error("[Error]", err.message);
+        res.status(500).json({ error: "Internal server error" });
+      });
+
+      initialized = true;
+    })();
+  }
+  await initPromise;
 }
+
+app.use(async (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+  await init();
+  next();
+});
 
 async function start() {
-  await connectDB();
-  await setupAuth();
+  await init();
 
-  if (env.NODE_ENV !== "production") {
-    app.listen(env.PORT, () => {
-      console.log(`[Server] MuseoAI API running on http://localhost:${env.PORT}`);
-    });
-  }
+  app.listen(env.PORT, () => {
+    console.log(`[Server] MuseoAI API running on http://localhost:${env.PORT}`);
+  });
 }
 
-start().catch(console.error);
+if (env.NODE_ENV !== "production") {
+  start().catch(console.error);
+}
 
 export default app;

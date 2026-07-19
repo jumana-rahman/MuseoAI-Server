@@ -46,6 +46,12 @@ export async function getAuth() {
     },
     trustedOrigins: [env.CLIENT_URL],
     baseURL: env.BETTER_AUTH_URL,
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: "none",
+        secure: true,
+      },
+    },
   });
 
   return _auth;
