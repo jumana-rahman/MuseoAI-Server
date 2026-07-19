@@ -88,8 +88,8 @@ Rules:
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
     }
-    res.write(`data: [DONE]\n\n`);
-    res.end();
+
+    let savedConversationId: string | undefined = conversation?._id?.toString();
 
     if (req.userId && reply) {
       const newMessages = [
@@ -104,15 +104,20 @@ Rules:
           { $set: { messages: newMessages, updatedAt: new Date() } }
         );
       } else {
-        await convCol.insertOne({
+        const result = await convCol.insertOne({
           userId: req.userId,
           museumId,
           messages: newMessages,
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+        savedConversationId = result.insertedId.toString();
       }
     }
+
+    res.write(`data: ${JSON.stringify({ conversationId: savedConversationId || null })}\n\n`);
+    res.write(`data: [DONE]\n\n`);
+    res.end();
   } catch (err) {
     console.error("[AI] Museum guide error:", err);
     if (!res.headersSent) {
@@ -122,6 +127,32 @@ Rules:
       res.write(`data: [DONE]\n\n`);
       res.end();
     }
+  }
+});
+
+router.get("/conversations/:museumId", requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const { museumId } = req.params;
+    const convCol = await getConversationsCollection();
+    const conversation = await convCol.findOne({
+      userId: req.userId!,
+      museumId,
+    });
+
+    if (!conversation) {
+      return res.json({ conversationId: null, messages: [] });
+    }
+
+    res.json({
+      conversationId: conversation._id?.toString() || null,
+      messages: conversation.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+    });
+  } catch (err) {
+    console.error("[AI] Get conversation error:", err);
+    res.status(500).json({ error: "Failed to fetch conversation" });
   }
 });
 
