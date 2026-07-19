@@ -244,10 +244,7 @@ router.post("/recommendations", optionalAuth, async (req: AuthRequest, res: Resp
 
     const museumsCol = await getMuseumsCollection();
 
-    const filter: Record<string, unknown> = {};
-    if (preferredCountry) filter.country = preferredCountry;
-
-    let candidateMuseums = await museumsCol.find(filter).limit(50).toArray();
+    let candidateMuseums = await museumsCol.find({}).limit(50).toArray();
 
     if (budget !== undefined && budget !== "") {
       const maxBudget = parseInt(String(budget), 10);
@@ -295,6 +292,11 @@ Traveler preferences:
 - Travel duration: ${travelDuration || "Not specified"}
 - Travel type: ${travelType || "Not specified"}
 ${personalizedContext}
+
+Rules:
+- If a preferred country is specified, STRONGLY prioritize museums from that country. Only include museums from other countries if there are not enough matches in the preferred country.
+- Always return the best matches even if preferences don't perfectly align.
+- Never return an empty array — always suggest at least some museums.
 
 Available museums:
 ${museumList}
