@@ -1,12 +1,10 @@
-import dns from "node:dns/promises";
-dns.setServers(["8.8.8.8", "8.8.4.4"]);
-
 import { MongoClient, type Db } from "mongodb";
 import { env } from "./env.js";
 
 const options = {
   maxPoolSize: 10,
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 30000,
+  connectTimeoutMS: 30000,
 };
 
 let client: MongoClient;
