@@ -27,7 +27,14 @@ router.get("/", async (req: Request, res: Response) => {
     const filter: Record<string, unknown> = {};
 
     if (search) {
-      filter.$text = { $search: search };
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { title: regex },
+        { city: regex },
+        { country: regex },
+        { category: regex },
+        { description: regex },
+      ];
     }
     if (country) filter.country = country;
     if (category) filter.category = category;
