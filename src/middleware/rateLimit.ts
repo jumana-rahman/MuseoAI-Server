@@ -10,10 +10,11 @@ export const authLimiter = rateLimit({
 
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 9999,
+  max: 5,
+  keyGenerator: (req) => (req as any).userId || req.ip || "unknown",
+  message: { error: "You've reached the AI request limit (5/min). Please wait a moment and try again." },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => true,
 });
 
 export const generalLimiter = rateLimit({

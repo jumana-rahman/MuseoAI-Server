@@ -18,9 +18,7 @@ function getAIErrorMessage(err: unknown): string {
   return "AI service temporarily unavailable. Please try again.";
 }
 
-router.use(aiLimiter);
-
-router.post("/museum-guide", optionalAuth, async (req: AuthRequest, res: Response) => {
+router.post("/museum-guide", optionalAuth, aiLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const parsed = museumGuideSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -165,7 +163,7 @@ router.get("/conversations/:museumId", requireAuth, async (req: AuthRequest, res
   }
 });
 
-router.post("/guide-writer", requireAuth, async (req: AuthRequest, res: Response) => {
+router.post("/guide-writer", requireAuth, aiLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const parsed = guideWriterSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -234,7 +232,7 @@ Do NOT include any text outside the JSON object. No markdown, no code blocks. Ju
   }
 });
 
-router.post("/recommendations", optionalAuth, async (req: AuthRequest, res: Response) => {
+router.post("/recommendations", optionalAuth, aiLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const parsed = recommendationsSchema.safeParse(req.body);
     if (!parsed.success) {
