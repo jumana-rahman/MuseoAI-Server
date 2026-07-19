@@ -10,6 +10,14 @@ import { museumGuideSchema, guideWriterSchema, recommendationsSchema, signalSche
 
 const router = Router();
 
+function getAIErrorMessage(err: unknown): string {
+  const status = (err as any)?.status || (err as any)?.code;
+  if (status === 429 || String(err).includes("429") || String(err).includes("RESOURCE_EXHAUSTED")) {
+    return "AI service limit reached. Please try again after 24 hours.";
+  }
+  return "AI service temporarily unavailable. Please try again.";
+}
+
 router.use(aiLimiter);
 
 router.post("/museum-guide", optionalAuth, async (req: AuthRequest, res: Response) => {
@@ -120,10 +128,11 @@ Rules:
     res.end();
   } catch (err) {
     console.error("[AI] Museum guide error:", err);
+    const msg = getAIErrorMessage(err);
     if (!res.headersSent) {
-      res.status(500).json({ error: "AI service temporarily unavailable. Please try again." });
+      res.status(500).json({ error: msg });
     } else {
-      res.write(`data: ${JSON.stringify({ error: "AI service temporarily unavailable." })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
       res.write(`data: [DONE]\n\n`);
       res.end();
     }
@@ -221,7 +230,7 @@ Do NOT include any text outside the JSON object. No markdown, no code blocks. Ju
     });
   } catch (err) {
     console.error("[AI] Guide writer error:", err);
-    res.status(500).json({ error: "AI guide generation failed. Please try again." });
+    res.status(500).json({ error: getAIErrorMessage(err) });
   }
 });
 
@@ -339,7 +348,7 @@ Return ONLY the JSON array. No markdown, no code blocks, no extra text.
     res.json(enriched);
   } catch (err) {
     console.error("[AI] Recommendations error:", err);
-    res.status(500).json({ error: "Recommendation service temporarily unavailable." });
+    res.status(500).json({ error: getAIErrorMessage(err) });
   }
 });
 
