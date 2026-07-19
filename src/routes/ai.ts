@@ -162,7 +162,7 @@ IMPORTANT: Generate the response as a valid JSON object with EXACTLY these field
 {
   "title": "Guide title",
   "shortDescription": "One-paragraph description",
-  "guideContent": "Detailed itinerary with time blocks, must-see exhibits, tips, recommended route, and time allocation",
+  "guideContent": "The full guide content formatted in markdown. MUST include these sections:\\n\\n## Itinerary\\nTime-blocked schedule (e.g., 9:00-10:00 - Arrival & Orientation)\\n\\n## Must-See Exhibits\\nBulleted list of the top exhibits or areas to visit\\n\\n## Visiting Tips\\nPractical advice for the best experience\\n\\n## Recommended Route\\nStep-by-step walking route through the museum\\n\\n## Time Allocation\\nBreakdown of how to distribute time across sections"
 }
 
 Do NOT include any text outside the JSON object. No markdown, no code blocks. Just the raw JSON.
@@ -226,8 +226,15 @@ router.post("/recommendations", optionalAuth, async (req: AuthRequest, res: Resp
       const signals = await signalsCol.find({ userId: req.userId }).sort({ createdAt: -1 }).limit(50).toArray();
       const viewedIds = signals.filter((s) => s.signalType === "museum_view").map((s) => s.museumId);
       const favIds = signals.filter((s) => s.signalType === "favorite_add").map((s) => s.museumId);
-      if (viewedIds.length || favIds.length) {
-        personalizedContext = `\nUser history: Viewed museums: ${viewedIds.join(", ") || "none"}. Favorited museums: ${favIds.join(", ") || "none"}. Prioritize variety over repetition.`;
+      const likedIds = signals.filter((s) => s.signalType === "like").map((s) => s.museumId);
+      const dislikedIds = signals.filter((s) => s.signalType === "dislike").map((s) => s.museumId);
+      const parts: string[] = [];
+      if (viewedIds.length) parts.push(`Viewed museums: ${viewedIds.join(", ")}`);
+      if (favIds.length) parts.push(`Favorited museums: ${favIds.join(", ")}`);
+      if (likedIds.length) parts.push(`User liked: ${likedIds.join(", ")}`);
+      if (dislikedIds.length) parts.push(`User disliked: ${dislikedIds.join(", ")}. Avoid recommending these.`);
+      if (parts.length) {
+        personalizedContext = `\nUser history: ${parts.join(". ")}. Prioritize variety over repetition.`;
       }
     }
 
