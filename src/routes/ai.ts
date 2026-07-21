@@ -10,14 +10,32 @@ import { museumGuideSchema, guideWriterSchema, recommendationsSchema, signalSche
 
 const router = Router();
 
-async function generateWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+async function generateContentWithFallback(
+  fn: (model: string) => Promise<any>,
+  primaryModel = "gemini-3.5-flash",
+  fallbackModel = "gemini-3.1-flash-lite",
+  retries = 3,
+  delay = 2000
+): Promise<any> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn(primaryModel);
+    } catch (error: any) {
+      if (error?.status !== 503) throw error;
+      if (attempt < retries) {
+        console.warn(`[AI] ${primaryModel} overloaded (503). Retry ${attempt}/${retries} in ${delay}ms...`);
+        await new Promise((r) => setTimeout(r, delay));
+        delay *= 2;
+      }
+    }
+  }
+
+  console.warn(`[AI] ${primaryModel} still overloaded. Falling back to ${fallbackModel}...`);
   try {
-    return await fn();
+    return await fn(fallbackModel);
   } catch (error: any) {
-    if (error?.status === 503 && retries > 0) {
-      console.warn(`[AI] Gemini overloaded (503). Retrying in ${delay}ms... (${retries} retries left)`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return generateWithRetry(fn, retries - 1, delay * 2);
+    if (error?.status === 503) {
+      console.warn(`[AI] ${fallbackModel} also overloaded.`);
     }
     throw error;
   }
@@ -92,8 +110,8 @@ Rules:
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    const stream = await generateWithRetry(() => ai.models.generateContentStream({
-      model: "gemini-3.5-flash",
+    const stream = await generateContentWithFallback((model) => ai.models.generateContentStream({
+      model,
       contents: [
         { role: "user", parts: [{ text: museumContext }] },
         { role: "model", parts: [{ text: "I'm ready to help visitors learn about " + museum.title + ". Ask me anything!" }] },
@@ -224,8 +242,8 @@ Do NOT include any text outside the JSON object. No markdown, no code blocks. Ju
 `;
 
     const ai = getAI();
-    const response = await generateWithRetry(() => ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await generateContentWithFallback((model) => ai.models.generateContent({
+      model,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     }));
 
@@ -335,8 +353,8 @@ Return ONLY the JSON array. No markdown, no code blocks, no extra text.
 `;
 
     const ai = getAI();
-    const response = await generateWithRetry(() => ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await generateContentWithFallback((model) => ai.models.generateContent({
+      model,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     }));
 
