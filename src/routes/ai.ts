@@ -10,10 +10,26 @@ import { museumGuideSchema, guideWriterSchema, recommendationsSchema, signalSche
 
 const router = Router();
 
+async function generateWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    if (error?.status === 503 && retries > 0) {
+      console.warn(`[AI] Gemini overloaded (503). Retrying in ${delay}ms... (${retries} retries left)`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return generateWithRetry(fn, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+}
+
 function getAIErrorMessage(err: unknown): string {
   const status = (err as any)?.status || (err as any)?.code;
   if (status === 429 || String(err).includes("429") || String(err).includes("RESOURCE_EXHAUSTED")) {
     return "The AI service is temporarily busy. Please try again in a moment.";
+  }
+  if (status === 503) {
+    return "The AI service is temporarily unavailable due to high demand. Please try again in a moment.";
   }
   return "AI service temporarily unavailable. Please try again.";
 }
@@ -76,7 +92,7 @@ Rules:
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    const stream = await ai.models.generateContentStream({
+    const stream = await generateWithRetry(() => ai.models.generateContentStream({
       model: "gemini-3.5-flash",
       contents: [
         { role: "user", parts: [{ text: museumContext }] },
@@ -84,7 +100,7 @@ Rules:
         ...historyMessages,
         { role: "user", parts: [{ text: sanitized }] },
       ],
-    });
+    }));
 
     let reply = "";
     for await (const chunk of stream) {
@@ -127,8 +143,9 @@ Rules:
   } catch (err) {
     console.error("[AI] Museum guide error:", err);
     const msg = getAIErrorMessage(err);
+    const status = (err as any)?.status || 500;
     if (!res.headersSent) {
-      res.status(500).json({ error: msg });
+      res.status(status).json({ error: msg });
     } else {
       res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
       res.write(`data: [DONE]\n\n`);
@@ -207,10 +224,10 @@ Do NOT include any text outside the JSON object. No markdown, no code blocks. Ju
 `;
 
     const ai = getAI();
-    const response = await ai.models.generateContent({
+    const response = await generateWithRetry(() => ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-    });
+    }));
 
     let raw = response.text || "";
 
@@ -228,7 +245,7 @@ Do NOT include any text outside the JSON object. No markdown, no code blocks. Ju
     });
   } catch (err) {
     console.error("[AI] Guide writer error:", err);
-    res.status(500).json({ error: getAIErrorMessage(err) });
+    res.status((err as any)?.status || 500).json({ error: getAIErrorMessage(err) });
   }
 });
 
@@ -318,10 +335,10 @@ Return ONLY the JSON array. No markdown, no code blocks, no extra text.
 `;
 
     const ai = getAI();
-    const response = await ai.models.generateContent({
+    const response = await generateWithRetry(() => ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-    });
+    }));
 
     let raw = response.text || "[]";
 
@@ -348,7 +365,7 @@ Return ONLY the JSON array. No markdown, no code blocks, no extra text.
     res.json(enriched);
   } catch (err) {
     console.error("[AI] Recommendations error:", err);
-    res.status(500).json({ error: getAIErrorMessage(err) });
+    res.status((err as any)?.status || 500).json({ error: getAIErrorMessage(err) });
   }
 });
 
