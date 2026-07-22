@@ -21,6 +21,10 @@ async function generateContentWithFallback(
     try {
       return await fn(primaryModel);
     } catch (error: any) {
+      if (error?.status === 429) {
+        console.warn(`[AI] ${primaryModel} rate limited (429). Falling back to ${fallbackModel}...`);
+        return await fn(fallbackModel);
+      }
       if (error?.status !== 503) throw error;
       if (attempt < retries) {
         console.warn(`[AI] ${primaryModel} overloaded (503). Retry ${attempt}/${retries} in ${delay}ms...`);
@@ -30,7 +34,7 @@ async function generateContentWithFallback(
     }
   }
 
-  console.warn(`[AI] ${primaryModel} still overloaded. Falling back to ${fallbackModel}...`);
+  console.warn(`[AI] ${primaryModel} still overloaded after ${retries} retries. Falling back to ${fallbackModel}...`);
   try {
     return await fn(fallbackModel);
   } catch (error: any) {
